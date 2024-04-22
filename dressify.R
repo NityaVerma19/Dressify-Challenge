@@ -1,121 +1,281 @@
-choose.files()
 data = read.csv("C:\\Users\\DELL\\OneDrive\\Desktop\\Desktop\\College\\DATA SCIENCE\\PROJECTS\\Dressify challenge\\Data\\RDS_Assignment_Train.csv")
-View(data)
-
-#Shape
-
-dim(data)
 
 #Duplicates
-data[duplicated(data$Dress_CODE)] #no duplicates
+data[duplicated(data$Dress_CODE)]
+
+
+#datatype of each column
+sapply(data, class)
+
+#converting into factors
+convert_to_factors <- function(data) {
+  for (col in names(data)) {
+    if (is.character(data[[col]]) || is.factor(data[[col]])) {
+      data[[col]] <- as.factor(data[[col]])
+    }
+  }
+  
+  return(data)
+}
+
+data = convert_to_factors(data)
+
 
 
 #Converting each value to lowercase
 data <- data.frame(lapply(data, tolower))
-data
 
 #Missing values
-
 sapply(data, function(x) sum(x == "null"))
 
-#Sleevelength contains 1 null value, extracting that row
 
-data[data$SleeveLength == "null", ]  #Dress code = 100841
-#as 4 variables contain null values, we will drop this row
+#A function that drop column that contain more than half the missing values
+drop_null_mode_columns <- function(data) {
+  mode_values <- sapply(data, function(col) {
+    table_col <- table(col)
+    mode_val <- names(sort(table_col, decreasing = TRUE))[1]
+    mode_val
+  })
+  null_mode_columns <- mode_values == "null"
+  data <- data[, !null_mode_columns, drop = FALSE]
+  
+  return(data)
+}
+data <- drop_null_mode_columns(data)
 
-data = data[data$Dress_CODE != "100841", ]
-
-#checking for missing values again
-sapply(data, function(x) sum(x == "null"))
-
-#it can be seen that fabric type contains 210 missing values, so we can drop the column
-data <- data[, -which(names(data) == "FabricType")]
-data <- data[, -which(names(data) == "Decoration")]
-
-
-#Extracting the row where rating = 0
-data[data$Rating == 0, ]
-data = data[data$Dress_CODE != "100586", ] #contains rating as 0 and many null values
-
-#finding the datatype of Rating
-class(data$Rating)  #character
-data$Rating = as.numeric(data$Rating)
-class(data$Rating)
-
-#finding the median of Rating
-median(data$Rating)
-
-#finding the columns that contain 0
+#Columns that contain 0
 sapply(data, function(x) sum(x == "0"))
-data[data$Price == 0, ]
-data[data$Season == 0, ]  #2 null 1 0
-data[data$Neckline == 0, ]
-data[data$waiseline == 0, ]  #remove this row
-data[data$Material == 0, ]
-data[data$Pattern.Type == 0, ]
 
 
-data = data[data$Dress_CODE != "s", ]
-#replacing 0 with null
-data$Price[data$Price == 0] <- "null"
-data$Size[data$Size == 0] <- "null"
-data$Season[data$Season == 0] <- "null"
-data$Price[data$Price == 0] <- "null"
-data$Price[data$Price == 0] <- "null"
-
-sapply(data, function(x) sum(x == "null"))  
-sapply(data, function(x) sum(x == 0))   #No zero in columns except rating and target
-
-
-#finding the most frequent value in material, price, season, waiseline and pattern.type
-
-freq_table <- table(data$Material)
-names(freq_table)[which.max(freq_table)]  #cotton occurs maximum time
-
-freq_table <- table(data$Price)
-names(freq_table)[which.max(freq_table)] #average
-
-freq_table <- table(data$Season)
-names(freq_table)[which.max(freq_table)] #summer
-
-freq_table <- table(data$Pattern.Type)
-names(freq_table)[which.max(freq_table)] #solid
-
-freq_table <- table(data$waiseline)
-names(freq_table)[which.max(freq_table)] #natural
+#Replacing 0 with null
+replace_zero_with_null <- function(data) {
+  for (col in names(data)) {
+    if (col != "Recommendation" && col != "Rating") {
+      data[[col]][data[[col]] == 0] <- "null"
+    }
+  }
+  return(data)
+}
+data <- replace_zero_with_null(data)
 
 
-#replacing with the most frequent value
+dim(data)
 
-data$Material[data$Material == "null"] <- "cotton"
-data[data$Material == "null", ]
+#drops rows that contains at least 5 null values
 
-data$Price[data$Price == "null"] <- "average"
-data[data$Price == "null", ]
+drop_rows_with_null <- function(data, threshold = 5) {
+  null_count <- rowSums(data == "null", na.rm = TRUE)
+  rows_to_drop <- which(null_count >= threshold)
+  data <- data[-rows_to_drop, ]
+  return(data)
+}
+data <- drop_rows_with_null(data)
 
-data$Season[data$Season == "null"] <- "summer"
-
-data$Pattern.Type[data$Pattern.Type == "null"] <- "solid"
-
-data$waiseline[data$waiseline == "null"] <- "natural"
-
-#Label encoding Price and size
 
 data$Price[data$Price == "medium"] <- "average"
 data$Size[data$Size == "small"] <- "s"
 
-data$Price[data$Price == "low"]               <- 1
-data$Price[data$Price == "average"]           <- 2
-data$Price[data$Price == "high"]              <- 3
-data$Price[data$Price == "very-high"]         <- 4
 
 
-data$Size[data$Size == "free"]                <- 1
-data$Size[data$Size == "s"]                   <- 1
-data$Size[data$Size == "m"]                   <- 2
-data$Size[data$Size == "l"]                   <- 3
-data$Size[data$Size == "xl"]                  <- 4
+#replace null iwht the most frequent value
+replace_null_with_mode <- function(data) {
+  exclude_columns <- c("Rating", "Recommendation", "Dress_CODE")
+  for (col in names(data)) {
+    if (!(col %in% exclude_columns)) {
+      mode_value <- names(sort(table(data[[col]]), decreasing = TRUE))[1]
+      data[[col]][data[[col]] == "null"] <- mode_value
+    }
+  }
+  
+  return(data)
+}
 
-View(data)
+data <- replace_null_with_mode(data)
 
 
+
+#Performing chi square test
+perform_chi_square_test <- function(data, target_column, categorical_columns) {
+  p_values <- numeric()
+  cols_to_drop <- character(0)
+  
+  for (col in categorical_columns) {
+    contingency_table <- table(data[[col]], data[[target_column]])
+    chi_square_result <- chisq.test(contingency_table, simulate.p.value = TRUE)
+    
+    p_value <- chi_square_result$p.value
+    p_values <- c(p_values, p_value)
+    
+    
+    if (p_value > 0.055) {
+      cols_to_drop <- c(cols_to_drop, col)
+    }
+  }
+  
+  results <- data.frame(Categorical_Variable = categorical_columns, p_value = p_values)
+  data <- data[, !(names(data) %in% cols_to_drop)]
+  
+  return(list(results = results, data = data))
+}
+
+categorical_columns <- c('Style','Rating','Size', 'Season', 'NeckLine', 'SleeveLength', 'waiseline', 'Material', 'Pattern.Type')
+
+results <- perform_chi_square_test(data, "Recommendation", categorical_columns)
+print(results$results)
+
+new_data <- results$data
+
+
+
+library(e1071)
+set.seed(123)
+train_indices <- sample(1:nrow(new_data), 0.7 * nrow(new_data))
+train_data <- new_data[train_indices, ]
+test_data <- new_data[-train_indices, ]
+
+# Train the Naive Bayes model
+naive_bayes_model <- naiveBayes(train_data[, -c(which(names(train_data) %in% c("Recommendation", "Dress_CODE")))], 
+                                train_data$Recommendation)
+
+# Make predictions on the test data
+predicted_classes <- predict(naive_bayes_model, test_data[, -c(which(names(test_data) %in% c("Recommendation", "Dress_CODE")))])
+
+# Evaluate the predictions
+accuracy <- mean(predicted_classes == test_data$Recommendation)
+print(paste("Accuracy:", accuracy))
+
+
+#----------------------------------------TEST DATA----------------------------------------------------------------------------------------
+
+data = read.csv( "C:\\Users\\DELL\\OneDrive\\Desktop\\Desktop\\College\\DATA SCIENCE\\PROJECTS\\Dressify challenge\\Data\\RDS_Assignment_Test.csv")
+
+
+#Duplicates
+data[duplicated(data$Dress_CODE)]
+
+
+#datatype of each column
+sapply(data, class)
+
+#converting into factors
+convert_to_factors <- function(data) {
+  for (col in names(data)) {
+    if (is.character(data[[col]]) || is.factor(data[[col]])) {
+      data[[col]] <- as.factor(data[[col]])
+    }
+  }
+  
+  return(data)
+}
+
+data = convert_to_factors(data)
+
+
+
+#Converting each value to lowercase
+data <- data.frame(lapply(data, tolower))
+
+#Missing values
+sapply(data, function(x) sum(x == "null"))
+
+
+#A function that drop column that contain more than half the missing values
+drop_null_mode_columns <- function(data) {
+  mode_values <- sapply(data, function(col) {
+    table_col <- table(col)
+    mode_val <- names(sort(table_col, decreasing = TRUE))[1]
+    mode_val
+  })
+  null_mode_columns <- mode_values == "null"
+  data <- data[, !null_mode_columns, drop = FALSE]
+  
+  return(data)
+}
+data <- drop_null_mode_columns(data)
+
+#Columns that contain 0
+sapply(data, function(x) sum(x == "0"))
+
+
+#Replacing 0 with null
+replace_zero_with_null <- function(data) {
+  for (col in names(data)) {
+    if (col != "Recommendation" && col != "Rating") {
+      data[[col]][data[[col]] == 0] <- "null"
+    }
+  }
+  return(data)
+}
+data <- replace_zero_with_null(data)
+
+
+dim(data)
+
+#drops rows that contains at least 5 null values
+
+drop_rows_with_null <- function(data, threshold = 5) {
+  null_count <- rowSums(data == "null", na.rm = TRUE)
+  rows_to_drop <- which(null_count >= threshold)
+  data <- data[-rows_to_drop, ]
+  return(data)
+}
+data <- drop_rows_with_null(data)
+
+
+data$Price[data$Price == "medium"] <- "average"
+data$Size[data$Size == "small"] <- "s"
+
+
+
+#replace null iwht the most frequent value
+replace_null_with_mode <- function(data) {
+  exclude_columns <- c("Rating", "Recommendation", "Dress_CODE")
+  for (col in names(data)) {
+    if (!(col %in% exclude_columns)) {
+      mode_value <- names(sort(table(data[[col]]), decreasing = TRUE))[1]
+      data[[col]][data[[col]] == "null"] <- mode_value
+    }
+  }
+  
+  return(data)
+}
+
+data <- replace_null_with_mode(data)
+
+
+
+#Performing chi square test
+perform_chi_square_test <- function(data, target_column, categorical_columns) {
+  p_values <- numeric()
+  cols_to_drop <- character(0)
+  
+  for (col in categorical_columns) {
+    contingency_table <- table(data[[col]], data[[target_column]])
+    chi_square_result <- chisq.test(contingency_table, simulate.p.value = TRUE)
+    
+    p_value <- chi_square_result$p.value
+    p_values <- c(p_values, p_value)
+    
+    
+    if (p_value > 0.055) {
+      cols_to_drop <- c(cols_to_drop, col)
+    }
+  }
+  
+  results <- data.frame(Categorical_Variable = categorical_columns, p_value = p_values)
+  data <- data[, !(names(data) %in% cols_to_drop)]
+  
+  return(list(results = results, data = data))
+}
+
+categorical_columns <- c('Style','Rating','Size', 'Season', 'NeckLine', 'SleeveLength', 'waiseline', 'Material', 'Pattern.Type')
+
+results <- perform_chi_square_test(data, "Recommendation", categorical_columns)
+print(results$results)
+
+test_data <- results$data
+
+predicted_classes <- predict(naive_bayes_model, test_data[, -c(which(names(test_data) %in% c("Recommendation", "Dress_CODE")))])
+
+accuracy <- mean(predicted_classes == test_data$Recommendation)
+print(paste("Accuracy:", accuracy))
