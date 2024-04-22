@@ -1,4 +1,5 @@
-data = read.csv("C:\\Users\\DELL\\OneDrive\\Desktop\\Desktop\\College\\DATA SCIENCE\\PROJECTS\\Dressify challenge\\RDS_Assignment_Train.csv")
+choose.files()
+data = read.csv("C:\\Users\\DELL\\OneDrive\\Desktop\\Desktop\\College\\DATA SCIENCE\\PROJECTS\\Dressify challenge\\Data\\RDS_Assignment_Train.csv")
 View(data)
 
 #Shape
@@ -98,5 +99,23 @@ data$Pattern.Type[data$Pattern.Type == "null"] <- "solid"
 
 data$waiseline[data$waiseline == "null"] <- "natural"
 
+#Label encoding Price and size
+
+data$Price[data$Price == "medium"] <- "average"
+data$Size[data$Size == "small"] <- "s"
+
+data$Price[data$Price == "low"]               <- 1
+data$Price[data$Price == "average"]           <- 2
+data$Price[data$Price == "high"]              <- 3
+data$Price[data$Price == "very-high"]         <- 4
+
+
+data$Size[data$Size == "free"]                <- 1
+data$Size[data$Size == "s"]                   <- 1
+data$Size[data$Size == "m"]                   <- 2
+data$Size[data$Size == "l"]                   <- 3
+data$Size[data$Size == "xl"]                  <- 4
 
 View(data)
+
+
