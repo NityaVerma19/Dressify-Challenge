@@ -77,7 +77,7 @@ data$Size[data$Size == "small"] <- "s"
 
 
 
-#replace null iwht the most frequent value
+#replace null with the most frequent value
 replace_null_with_mode <- function(data) {
   exclude_columns <- c("Rating", "Recommendation", "Dress_CODE")
   for (col in names(data)) {
@@ -94,7 +94,7 @@ data <- replace_null_with_mode(data)
 
 
 
-#Performing chi square test
+#Performing chi-square test
 perform_chi_square_test <- function(data, target_column, categorical_columns) {
   p_values <- numeric()
   cols_to_drop <- character(0)
